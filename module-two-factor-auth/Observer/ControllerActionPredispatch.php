@@ -119,6 +119,7 @@ class ControllerActionPredispatch implements ObserverInterface
 
     /**
      * @inheritDoc
+     * @SuppressWarnings(PHPMD.CyclomaticComplexity)
      */
     public function execute(Observer $observer)
     {
