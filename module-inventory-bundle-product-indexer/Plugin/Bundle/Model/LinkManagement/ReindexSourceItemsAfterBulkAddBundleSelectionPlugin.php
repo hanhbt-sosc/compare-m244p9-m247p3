@@ -7,15 +7,17 @@ declare(strict_types=1);
 
 namespace Magento\InventoryBundleProductIndexer\Plugin\Bundle\Model\LinkManagement;
 
-use Magento\Bundle\Api\ProductLinkManagementInterface;
+use Magento\Bundle\Api\Data\LinkInterface;
+use Magento\Bundle\Api\ProductLinkManagementAddChildrenInterface;
+use Magento\Catalog\Api\Data\ProductInterface;
 use Magento\InventoryApi\Model\GetStockIdsBySkusInterface;
 use Magento\InventoryBundleProductIndexer\Indexer\StockIndexer;
 use Psr\Log\LoggerInterface;
 
 /**
- * Reindex source items after bundle link has been removed plugin.
+ * Reindex source items after bundle link has been added plugin.
  */
-class ReindexSourceItemsAfterRemoveBundleSelectionPlugin
+class ReindexSourceItemsAfterBulkAddBundleSelectionPlugin
 {
     /**
      * @var LoggerInterface
@@ -48,30 +50,29 @@ class ReindexSourceItemsAfterRemoveBundleSelectionPlugin
     }
 
     /**
-     * Process source items after bundle selection has been removed.
+     * Reindex source items after selection has been added to bundle product.
      *
-     * @param ProductLinkManagementInterface $subject
-     * @param bool $result
-     * @param string $sku
+     * @param ProductLinkManagementAddChildrenInterface $subject
+     * @param void $result
+     * @param ProductInterface $product
      * @param int $optionId
-     * @param string $childSku
-     * @return bool
+     * @param LinkInterface[] $linkedProducts
+     * @return void
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
-    public function afterRemoveChild(
-        ProductLinkManagementInterface $subject,
-        bool $result,
-        string $sku,
+    public function afterAddChildren(
+        ProductLinkManagementAddChildrenInterface $subject,
+        $result,
+        ProductInterface $product,
         int $optionId,
-        string $childSku
-    ): bool {
+        array $linkedProducts
+    ): void {
         try {
-            $stockIds = $this->getStockIdsBySkus->execute([$childSku]);
-            $this->stockIndexer->executeList($stockIds, [$sku]);
+            $skus = array_map(fn ($linkedProduct) => $linkedProduct->getSku(), $linkedProducts);
+            $stockIds = $this->getStockIdsBySkus->execute($skus);
+            $this->stockIndexer->executeList($stockIds, [$product->getSku()]);
         } catch (\Exception $e) {
             $this->logger->error($e->getMessage());
         }
-
-        return $result;
     }
 }
