@@ -8,10 +8,8 @@ declare(strict_types=1);
 
 namespace Magento\PageCache\Controller;
 
-use Magento\Framework\App\Action\Context;
 use Magento\Framework\Serialize\Serializer\Base64Json;
 use Magento\Framework\Serialize\Serializer\Json;
-use Magento\Framework\Translate\InlineInterface;
 use Magento\Framework\Validator\RegexFactory;
 use Magento\Framework\App\ObjectManager;
 use Magento\Framework\View\Layout\LayoutCacheKeyInterface;
@@ -20,7 +18,7 @@ use Magento\Framework\App\Config\ScopeConfigInterface;
 abstract class Block extends \Magento\Framework\App\Action\Action
 {
     /**
-     * @var InlineInterface
+     * @var \Magento\Framework\Translate\InlineInterface
      */
     protected $translateInline;
 
@@ -67,17 +65,17 @@ abstract class Block extends \Magento\Framework\App\Action\Action
     private const XML_HANDLES_SIZE = 'system/full_page_cache/handles_size';
 
     /**
-     * @param Context $context
-     * @param InlineInterface $translateInline
-     * @param Json|null $jsonSerializer
-     * @param Base64Json|null $base64jsonSerializer
-     * @param LayoutCacheKeyInterface|null $layoutCacheKey
+     * @param \Magento\Framework\App\Action\Context $context
+     * @param \Magento\Framework\Translate\InlineInterface $translateInline
+     * @param Json $jsonSerializer
+     * @param Base64Json $base64jsonSerializer
+     * @param LayoutCacheKeyInterface $layoutCacheKey
      * @param RegexFactory|null $regexValidatorFactory
      * @param ScopeConfigInterface|null $scopeConfig
      */
     public function __construct(
-        Context $context,
-        InlineInterface $translateInline,
+        \Magento\Framework\App\Action\Context $context,
+        \Magento\Framework\Translate\InlineInterface $translateInline,
         Json $jsonSerializer = null,
         Base64Json $base64jsonSerializer = null,
         LayoutCacheKeyInterface $layoutCacheKey = null,
@@ -94,7 +92,8 @@ abstract class Block extends \Magento\Framework\App\Action\Action
             ?: ObjectManager::getInstance()->get(LayoutCacheKeyInterface::class);
         $this->regexValidatorFactory = $regexValidatorFactory
             ?: ObjectManager::getInstance()->get(RegexFactory::class);
-        $this->config = $scopeConfig;
+        $this->config = $scopeConfig
+            ?: ObjectManager::getInstance()->get(ScopeConfigInterface::class);
     }
 
     /**
@@ -112,9 +111,10 @@ abstract class Block extends \Magento\Framework\App\Action\Action
         }
         $blocks = $this->jsonSerializer->unserialize($blocks);
         $handles = $this->base64jsonSerializer->unserialize($handles);
-        $handlesSize = (int)$this->config->getValue(self::XML_HANDLES_SIZE);
-        $handles = ($handlesSize && count($handles) > $handlesSize)
-            ? array_splice($handles, 0, $handlesSize) : $handles;
+
+        $handleSize = (int) $this->config->getValue(self::XML_HANDLES_SIZE);
+        $handles = ($handleSize && count($handles) > $handleSize)
+            ? array_splice($handles, 0, $handleSize) : $handles;
 
         if (!$this->validateHandleParam($handles)) {
             return [];
@@ -123,8 +123,6 @@ abstract class Block extends \Magento\Framework\App\Action\Action
         $layout = $this->_view->getLayout();
         $this->layoutCacheKey->addCacheKeys($this->layoutCacheKeyName);
 
-        // loadLayout() is using actionHandlers flag which doesn't exist in Framework\View\Layout\Builder::build
-        // phpcs:ignore
         $this->_view->loadLayout($handles, true, true, false);
         $data = [];
 
