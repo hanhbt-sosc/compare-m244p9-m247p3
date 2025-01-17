@@ -1070,7 +1070,7 @@ class Config extends AbstractConfig
         }
         return sprintf(
             'https://www.paypal.com/%s/cgi-bin/webscr?cmd=xpt/Marketing/popup/OLCWhatIsPayPal-outside',
-            strtolower($countryCode)
+            $countryCode !== null ? strtolower($countryCode) : ''
         );
     }
 
