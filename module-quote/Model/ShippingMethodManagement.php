@@ -229,7 +229,7 @@ class ShippingMethodManagement implements
         }
         $shippingMethod = $carrierCode . '_' . $methodCode;
         $shippingAddress->setShippingMethod($shippingMethod);
-        $shippingAssignments = $quote->getExtensionAttributes()->getShippingAssignments();
+        $shippingAssignments = (array)$quote->getExtensionAttributes()->getShippingAssignments();
         if (!empty($shippingAssignments)) {
             $shippingAssignment = $shippingAssignments[0];
             $shipping = $shippingAssignment->getShipping();
@@ -300,6 +300,7 @@ class ShippingMethodManagement implements
      * @return ShippingMethodInterface[] An array of shipping methods.
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      * @deprecated 100.1.6
+     * @see Updated-deprication-doc-annotations
      */
     protected function getEstimatedRates(
         Quote $quote,
@@ -380,6 +381,7 @@ class ShippingMethodManagement implements
      *
      * @return DataObjectProcessor
      * @deprecated 101.0.0
+     * @see Updated-deprication-doc-annotations
      */
     private function getDataObjectProcessor()
     {

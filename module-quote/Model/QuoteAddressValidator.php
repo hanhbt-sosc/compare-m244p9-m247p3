@@ -29,8 +29,6 @@ class QuoteAddressValidator
     protected AddressRepositoryInterface $addressRepository;
 
     /**
-     * Customer repository object.
-     *
      * @var CustomerRepositoryInterface
      */
     protected CustomerRepositoryInterface $customerRepository;
