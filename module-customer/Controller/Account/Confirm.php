@@ -168,7 +168,6 @@ class Confirm extends AbstractAccount implements HttpGetActionInterface
         if (empty($customerId) || empty($key)) {
             $this->messageManager->addErrorMessage(__('Bad request.'));
             $url = $this->urlModel->getUrl('*/*/index', ['_secure' => true]);
-            // phpcs:ignore Magento2.Legacy.ObsoleteResponse
             return $resultRedirect->setUrl($this->_redirect->error($url));
         }
 
@@ -198,7 +197,6 @@ class Confirm extends AbstractAccount implements HttpGetActionInterface
         }
 
         $url = $this->urlModel->getUrl('*/*/index', ['_secure' => true]);
-        // phpcs:ignore Magento2.Legacy.ObsoleteResponse
         return $resultRedirect->setUrl($this->_redirect->error($url));
     }
 
@@ -256,7 +254,6 @@ class Confirm extends AbstractAccount implements HttpGetActionInterface
         } else {
             $successUrl = $this->urlModel->getUrl('*/*/index', ['_secure' => true]);
         }
-        // phpcs:ignore Magento2.Legacy.ObsoleteResponse
         return $this->_redirect->success($backUrl ? $backUrl : $successUrl);
     }
 }

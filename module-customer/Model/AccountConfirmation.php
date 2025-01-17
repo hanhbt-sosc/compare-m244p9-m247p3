@@ -144,7 +144,7 @@ class AccountConfirmation
      */
     private function canSkipConfirmation($customerId, $customerEmail): bool
     {
-        if (!$customerId) {
+        if (!$customerId || $customerEmail === null) {
             return false;
         }
 

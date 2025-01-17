@@ -19,8 +19,6 @@ use Magento\Framework\App\State;
 use Magento\Framework\Exception\NoSuchEntityException;
 use Magento\Framework\Session\StorageInterface;
 use Psr\Log\LoggerInterface;
-use Magento\Framework\Exception\LocalizedException;
-use Magento\Framework\App\Request\Http;
 
 /**
  * Refresh the Customer session if `UpdateSession` notification registered
@@ -60,7 +58,7 @@ class CustomerNotification
     private $logger;
 
     /**
-     * @var RequestInterface|Http
+     * @var RequestInterface|\Magento\Framework\App\Request\Http
      */
     private $request;
 
@@ -103,7 +101,7 @@ class CustomerNotification
      *
      * @param ActionInterface $subject
      * @return void
-     * @throws LocalizedException
+     * @throws \Magento\Framework\Exception\LocalizedException
      * @SuppressWarnings(PHPMD.UnusedFormalParameter)
      */
     public function beforeExecute(ActionInterface $subject)
@@ -112,6 +110,7 @@ class CustomerNotification
 
         if (!$this->isFrontendRequest()
             || !$this->isPostRequest()
+            || $this->isLogoutRequest()
             || !$this->isSessionUpdateRegisteredFor($customerId)) {
             return;
         }
@@ -149,10 +148,22 @@ class CustomerNotification
     }
 
     /**
+     * Checks if the current request is a logout request.
+     *
+     * @return bool
+     */
+    private function isLogoutRequest(): bool
+    {
+        return $this->request->getRouteName() === 'customer'
+            && $this->request->getControllerName() === 'account'
+            && $this->request->getActionName() === 'logout';
+    }
+
+    /**
      * Check if the current application area is frontend.
      *
      * @return bool
-     * @throws LocalizedException
+     * @throws \Magento\Framework\Exception\LocalizedException
      */
     private function isFrontendRequest(): bool
     {
