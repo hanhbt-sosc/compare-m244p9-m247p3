@@ -198,6 +198,11 @@
     <preference
             for="Magento\SalesRule\Model\Spi\CodeLimitManagerInterface"
             type="Magento\SalesRule\Model\Coupon\CodeLimitManager" />
+    <type name="Magento\SalesRule\Observer\RuleQuoteRecollectTotalsObserver">
+        <arguments>
+            <argument name="recollectTotals" xsi:type="object">Magento\SalesRule\Model\Rule\RuleQuoteRecollectTotalsAsync\Proxy</argument>
+        </arguments>
+    </type>
     <type name="Magento\SalesRule\Controller\Adminhtml\Promo\Quote\Generate">
         <arguments>
             <argument name="scopeConfig" xsi:type="object">Magento\Framework\App\Config\ScopeConfigInterface\Proxy</argument>

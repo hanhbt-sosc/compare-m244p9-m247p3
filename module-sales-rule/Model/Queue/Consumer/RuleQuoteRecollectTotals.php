@@ -5,21 +5,28 @@
  */
 declare(strict_types=1);
 
-namespace Magento\SalesRule\Model;
+namespace Magento\SalesRule\Model\Queue\Consumer;
 
-use Magento\SalesRule\Model\Coupon\Usage\UpdateInfoFactory;
-use Magento\SalesRule\Model\Coupon\Usage\Processor as CouponUsageProcessor;
 use Magento\AsynchronousOperations\Api\Data\OperationInterface;
-use Magento\Framework\Serialize\SerializerInterface;
+use Magento\Framework\DB\Adapter\ConnectionException;
+use Magento\Framework\DB\Adapter\DeadlockException;
+use Magento\Framework\DB\Adapter\LockWaitException;
 use Magento\Framework\EntityManager\EntityManager;
-use Magento\Framework\Exception\NotFoundException;
+use Magento\Framework\Serialize\SerializerInterface;
+use Magento\SalesRule\Model\Spi\RuleQuoteRecollectTotalsInterface;
 use Psr\Log\LoggerInterface;
+use Throwable;
 
 /**
- * Consumer for coupon usage update
+ * Queue consumer for triggering recollect totals by rule ID
  */
-class CouponUsageConsumer
+class RuleQuoteRecollectTotals
 {
+    /**
+     * @var RuleQuoteRecollectTotalsInterface
+     */
+    private $ruleQuoteRecollectTotals;
+
     /**
      * @var SerializerInterface
      */
@@ -31,36 +38,23 @@ class CouponUsageConsumer
     private $logger;
 
     /**
-     * @var CouponUsageProcessor
-     */
-    private $processor;
-
-    /**
      * @var EntityManager
      */
     private $entityManager;
 
     /**
-     * @var UpdateInfoFactory
-     */
-    private $updateInfoFactory;
-
-    /**
-     * @param UpdateInfoFactory $updateInfoFactory
-     * @param CouponUsageProcessor $processor
+     * @param RuleQuoteRecollectTotalsInterface $ruleQuoteRecollectTotals
      * @param LoggerInterface $logger
      * @param SerializerInterface $serializer
      * @param EntityManager $entityManager
      */
     public function __construct(
-        UpdateInfoFactory $updateInfoFactory,
-        CouponUsageProcessor $processor,
+        RuleQuoteRecollectTotalsInterface $ruleQuoteRecollectTotals,
         LoggerInterface $logger,
         SerializerInterface $serializer,
         EntityManager $entityManager
     ) {
-        $this->updateInfoFactory = $updateInfoFactory;
-        $this->processor = $processor;
+        $this->ruleQuoteRecollectTotals = $ruleQuoteRecollectTotals;
         $this->logger = $logger;
         $this->serializer = $serializer;
         $this->entityManager = $entityManager;
@@ -78,20 +72,30 @@ class CouponUsageConsumer
         try {
             $serializedData = $operation->getSerializedData();
             $data = $this->serializer->unserialize($serializedData);
-            $updateInfo = $this->updateInfoFactory->create();
-            $updateInfo->setData($data);
-            $this->processor->updateCouponUsages($updateInfo);
-            $this->processor->updateRuleUsages($updateInfo);
-        } catch (NotFoundException $e) {
+            $this->ruleQuoteRecollectTotals->execute($data['rule_id']);
+        } catch (LockWaitException  $e) {
+            $this->logger->critical($e->getMessage());
+            $status = OperationInterface::STATUS_TYPE_RETRIABLY_FAILED;
+            $errorCode = $e->getCode();
+            $message = __($e->getMessage());
+        } catch (DeadlockException  $e) {
+            $this->logger->critical($e->getMessage());
+            $status = OperationInterface::STATUS_TYPE_RETRIABLY_FAILED;
+            $errorCode = $e->getCode();
+            $message = __($e->getMessage());
+        } catch (ConnectionException  $e) {
+            $this->logger->critical($e->getMessage());
+            $status = OperationInterface::STATUS_TYPE_RETRIABLY_FAILED;
+            $errorCode = $e->getCode();
+            $message = __($e->getMessage());
+        } catch (Throwable $e) {
             $this->logger->critical($e->getMessage());
             $status = OperationInterface::STATUS_TYPE_NOT_RETRIABLY_FAILED;
             $errorCode = $e->getCode();
-            $message = $e->getMessage();
-        } catch (\Exception $e) {
-            $this->logger->critical($e->getMessage());
-            $status = OperationInterface::STATUS_TYPE_NOT_RETRIABLY_FAILED;
-            $errorCode = $e->getCode();
-            $message = __('Sorry, something went wrong during rule usage update. Please see log for details.');
+            $message = __(
+                'Sorry, something went wrong while triggering recollect totals for affected quotes.' .
+                ' Please see log for details.'
+            );
         }
 
         $operation->setStatus($status ?? OperationInterface::STATUS_TYPE_COMPLETE)
