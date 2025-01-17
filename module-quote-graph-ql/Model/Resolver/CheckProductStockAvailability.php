@@ -1,7 +1,7 @@
 <?php
 /**
- * Copyright © Magento, Inc. All rights reserved.
- * See COPYING.txt for license details.
+ * Copyright 2023 Adobe
+ * All Rights Reserved.
  */
 declare(strict_types=1);
 
@@ -11,21 +11,21 @@ use Magento\Framework\Exception\LocalizedException;
 use Magento\Framework\GraphQl\Config\Element\Field;
 use Magento\Framework\GraphQl\Query\ResolverInterface;
 use Magento\Framework\GraphQl\Schema\Type\ResolveInfo;
-use Magento\QuoteGraphQl\Model\GetDiscounts;
+use Magento\QuoteGraphQl\Model\CartItem\ProductStock;
+use Magento\Quote\Model\Quote\Item;
 
 /**
  * @inheritdoc
  */
-class Discounts implements ResolverInterface
+class CheckProductStockAvailability implements ResolverInterface
 {
-    public const TYPE_SHIPPING = "SHIPPING";
-    public const TYPE_ITEM = "ITEM";
-
     /**
-     * @param GetDiscounts $getDiscounts
+     * CheckProductStockAvailability constructor
+     *
+     * @param ProductStock $productStock
      */
     public function __construct(
-        private readonly GetDiscounts $getDiscounts,
+        private ProductStock $productStock
     ) {
     }
 
@@ -37,11 +37,9 @@ class Discounts implements ResolverInterface
         if (!isset($value['model'])) {
             throw new LocalizedException(__('"model" value should be specified'));
         }
-        $quote = $value['model'];
+        /** @var Item $cartItem */
+        $cartItem = $value['model'];
 
-        return $this->getDiscounts->execute(
-            $quote,
-            $quote->getShippingAddress()->getExtensionAttributes()->getDiscounts() ?? []
-        );
+        return $this->productStock->isProductAvailable($cartItem);
     }
 }

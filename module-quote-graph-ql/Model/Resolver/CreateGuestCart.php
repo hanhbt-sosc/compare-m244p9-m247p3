@@ -1,39 +1,40 @@
 <?php
 /**
- * Copyright © Magento, Inc. All rights reserved.
- * See COPYING.txt for license details.
+ * Copyright 2023 Adobe
+ * All Rights Reserved.
  */
 declare(strict_types=1);
 
 namespace Magento\QuoteGraphQl\Model\Resolver;
 
 use Magento\Framework\GraphQl\Config\Element\Field;
+use Magento\Framework\GraphQl\Exception\GraphQlAlreadyExistsException;
 use Magento\Framework\GraphQl\Query\ResolverInterface;
 use Magento\Framework\GraphQl\Schema\Type\ResolveInfo;
+use Magento\Quote\Api\CartRepositoryInterface;
 use Magento\Quote\Model\MaskedQuoteIdToQuoteIdInterface;
-use Magento\QuoteGraphQl\Model\Cart\CreateEmptyCartForCustomer;
 use Magento\QuoteGraphQl\Model\Cart\CreateEmptyCartForGuest;
 use Magento\QuoteGraphQl\Model\Cart\ValidateMaskedQuoteId;
 
 /**
- * @inheritdoc
+ * Creates a guest cart
  */
-class CreateEmptyCart implements ResolverInterface
+class CreateGuestCart implements ResolverInterface
 {
-    /**
-     * @var CreateEmptyCartForCustomer
-     */
-    private $createEmptyCartForCustomer;
-
     /**
      * @var CreateEmptyCartForGuest
      */
-    private $createEmptyCartForGuest;
+    private CreateEmptyCartForGuest $createEmptyCartForGuest;
 
     /**
      * @var MaskedQuoteIdToQuoteIdInterface
      */
-    private $maskedQuoteIdToQuoteId;
+    private MaskedQuoteIdToQuoteIdInterface $maskedQuoteIdToQuoteId;
+
+    /**
+     * @var CartRepositoryInterface
+     */
+    private CartRepositoryInterface $cartRepository;
 
     /**
      * @var ValidateMaskedQuoteId
@@ -41,20 +42,20 @@ class CreateEmptyCart implements ResolverInterface
     private ValidateMaskedQuoteId $validateMaskedQuoteId;
 
     /**
-     * @param CreateEmptyCartForCustomer $createEmptyCartForCustomer
      * @param CreateEmptyCartForGuest $createEmptyCartForGuest
      * @param MaskedQuoteIdToQuoteIdInterface $maskedQuoteIdToQuoteId
+     * @param CartRepositoryInterface $cartRepository
      * @param ValidateMaskedQuoteId $validateMaskedQuoteId
      */
     public function __construct(
-        CreateEmptyCartForCustomer $createEmptyCartForCustomer,
         CreateEmptyCartForGuest $createEmptyCartForGuest,
         MaskedQuoteIdToQuoteIdInterface $maskedQuoteIdToQuoteId,
+        CartRepositoryInterface $cartRepository,
         ValidateMaskedQuoteId $validateMaskedQuoteId
     ) {
-        $this->createEmptyCartForCustomer = $createEmptyCartForCustomer;
         $this->createEmptyCartForGuest = $createEmptyCartForGuest;
         $this->maskedQuoteIdToQuoteId = $maskedQuoteIdToQuoteId;
+        $this->cartRepository = $cartRepository;
         $this->validateMaskedQuoteId = $validateMaskedQuoteId;
     }
 
@@ -66,14 +67,25 @@ class CreateEmptyCart implements ResolverInterface
         $customerId = $context->getUserId();
 
         $predefinedMaskedQuoteId = null;
-        if (isset($args['input']['cart_id'])) {
-            $predefinedMaskedQuoteId = $args['input']['cart_id'];
+        if (isset($args['input']['cart_uid'])) {
+            $predefinedMaskedQuoteId = $args['input']['cart_uid'];
             $this->validateMaskedQuoteId->execute($predefinedMaskedQuoteId);
         }
 
-        $maskedQuoteId = (0 === $customerId || null === $customerId)
-            ? $this->createEmptyCartForGuest->execute($predefinedMaskedQuoteId)
-            : $this->createEmptyCartForCustomer->execute($customerId, $predefinedMaskedQuoteId);
-        return $maskedQuoteId;
+        if ($customerId === 0 || $customerId === null) {
+            $maskedQuoteId = $this->createEmptyCartForGuest->execute($predefinedMaskedQuoteId);
+            $cartId = $this->maskedQuoteIdToQuoteId->execute($maskedQuoteId);
+            $cart = $this->cartRepository->get($cartId);
+        } else {
+            throw new GraphQlAlreadyExistsException(
+                __('Use `Query.customerCart` for logged in customer.')
+            );
+        }
+
+        return [
+            'cart' => [
+                'model' => $cart,
+            ],
+        ];
     }
 }

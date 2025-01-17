@@ -5,17 +5,12 @@
  */
 declare(strict_types=1);
 
-namespace Magento\QuoteGraphQl\Model\Cart\BuyRequest;
+namespace Magento\QuoteGraphQl\Model\Cart;
 
-/**
- * Build buy request for adding products to cart
- *
- * @api
- */
-interface BuyRequestDataProviderInterface
+interface CreateBuyRequestDataProviderInterface
 {
     /**
-     * Provide buy request data from add to cart item request
+     * Create buy request data that can be used for working with cart items
      *
      * @param array $cartItemData
      * @return array
