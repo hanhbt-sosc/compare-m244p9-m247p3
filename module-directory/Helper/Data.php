@@ -16,6 +16,7 @@ use Magento\Framework\App\Config\ScopeConfigInterface;
 use Magento\Framework\App\Helper\AbstractHelper;
 use Magento\Framework\App\Helper\Context;
 use Magento\Framework\Json\Helper\Data as JsonData;
+use Magento\Framework\ObjectManager\ResetAfterRequestInterface;
 use Magento\Store\Model\ScopeInterface;
 use Magento\Store\Model\StoreManagerInterface;
 
@@ -26,7 +27,7 @@ use Magento\Store\Model\StoreManagerInterface;
  * @since 100.0.2
  * @SuppressWarnings(PHPMD.CouplingBetweenObjects)
  */
-class Data extends AbstractHelper
+class Data extends AbstractHelper implements ResetAfterRequestInterface
 {
     private const STORE_ID = 'store_id';
 
@@ -348,7 +349,7 @@ class Data extends AbstractHelper
             AllowedCountries::ALLOWED_COUNTRIES_PATH,
             $scope['type'],
             $scope['value']
-        );
+        ) ?? '';
         $countryIds = explode(',', $allowedCountries);
         $collection = $this->_regCollectionFactory->create();
         $collection->addCountryFilter($countryIds)->load();
@@ -434,5 +435,14 @@ class Data extends AbstractHelper
         }
 
         return $scope;
+    }
+
+    /**
+     * @inheritDoc
+     */
+    public function _resetState(): void
+    {
+        $this->_regionJson = null;
+        $this->_currencyCache = [];
     }
 }

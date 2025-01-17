@@ -16,20 +16,28 @@ use Magento\Store\Model\ScopeInterface;
 use Magento\Framework\HTTP\LaminasClient;
 
 /**
- * Currency rate import model (From http://fixer.io/)
+ * Currency rate import model (https://apilayer.com/marketplace/fixer-api)
  */
-class FixerIo extends AbstractImport
+class FixerIoApiLayer implements ImportInterface
 {
+    private const CURRENCY_CONVERTER_HOST = 'https://api.apilayer.com';
+    private const CURRENCY_CONVERTER_URL_PATH = '/fixer/latest?'
+    . 'apikey={{ACCESS_KEY}}&base={{CURRENCY_FROM}}&symbols={{CURRENCY_TO}}';
+
     /**
-     * @var string
+     * @var array
      */
-    public const CURRENCY_CONVERTER_URL = 'http://data.fixer.io/api/latest?access_key={{ACCESS_KEY}}'
-        . '&base={{CURRENCY_FROM}}&symbols={{CURRENCY_TO}}';
+    private $messages = [];
 
     /**
      * @var HttpClientFactory
      */
-    protected $httpClientFactory;
+    private $httpClientFactory;
+
+    /**
+     * @var CurrencyFactory
+     */
+    private $currencyFactory;
 
     /**
      * Core scope config
@@ -37,11 +45,6 @@ class FixerIo extends AbstractImport
      * @var ScopeConfigInterface
      */
     private $scopeConfig;
-
-    /**
-     * @var string
-     */
-    private $currencyConverterServiceHost = '';
 
     /**
      * Initialize dependencies
@@ -55,9 +58,21 @@ class FixerIo extends AbstractImport
         ScopeConfigInterface $scopeConfig,
         HttpClientFactory $httpClientFactory
     ) {
-        parent::__construct($currencyFactory);
+        $this->currencyFactory = $currencyFactory;
         $this->scopeConfig = $scopeConfig;
         $this->httpClientFactory = $httpClientFactory;
+    }
+
+    /**
+     * Import rates
+     *
+     * @return $this
+     */
+    public function importRates()
+    {
+        $data = $this->fetchRates();
+        $this->saveRates($data);
+        return $this;
     }
 
     /**
@@ -66,8 +81,8 @@ class FixerIo extends AbstractImport
     public function fetchRates()
     {
         $data = [];
-        $currencies = $this->_getCurrencyCodes();
-        $defaultCurrencies = $this->_getDefaultCurrencyCodes();
+        $currencies = $this->getCurrencyCodes();
+        $defaultCurrencies = $this->getDefaultCurrencyCodes();
 
         foreach ($defaultCurrencies as $currencyFrom) {
             if (!isset($data[$currencyFrom])) {
@@ -82,9 +97,9 @@ class FixerIo extends AbstractImport
     /**
      * @inheritdoc
      */
-    protected function _convert($currencyFrom, $currencyTo)
+    public function getMessages()
     {
-        return 1;
+        return $this->messages;
     }
 
     /**
@@ -97,9 +112,9 @@ class FixerIo extends AbstractImport
      */
     private function convertBatch(array $data, string $currencyFrom, array $currenciesTo): array
     {
-        $accessKey = $this->scopeConfig->getValue('currency/fixerio/api_key', ScopeInterface::SCOPE_STORE);
+        $accessKey = $this->scopeConfig->getValue('currency/fixerio_apilayer/api_key', ScopeInterface::SCOPE_STORE);
         if (empty($accessKey)) {
-            $this->_messages[] = __('No API Key was specified or an invalid API Key was specified.');
+            $this->messages[] = __('No API Key was specified or an invalid API Key was specified.');
             $data[$currencyFrom] = $this->makeEmptyResponse($currenciesTo);
             return $data;
         }
@@ -108,7 +123,7 @@ class FixerIo extends AbstractImport
         $url = str_replace(
             ['{{ACCESS_KEY}}', '{{CURRENCY_FROM}}', '{{CURRENCY_TO}}'],
             [$accessKey, $currencyFrom, $currenciesStr],
-            self::CURRENCY_CONVERTER_URL
+            self::CURRENCY_CONVERTER_HOST . self::CURRENCY_CONVERTER_URL_PATH
         );
         // phpcs:ignore Magento2.Functions.DiscouragedFunction
         set_time_limit(0);
@@ -125,16 +140,14 @@ class FixerIo extends AbstractImport
 
         foreach ($currenciesTo as $currencyTo) {
             if ($currencyFrom == $currencyTo) {
-                $data[$currencyFrom][$currencyTo] = $this->_numberFormat(1);
+                $data[$currencyFrom][$currencyTo] = 1;
             } else {
                 if (empty($response['rates'][$currencyTo])) {
-                    $serviceHost =  $this->getServiceHost($url);
-                    $this->_messages[] = __('We can\'t retrieve a rate from %1 for %2.', $serviceHost, $currencyTo);
+                    $message = 'We can\'t retrieve a rate from %1 for %2.';
+                    $this->messages[] = __($message, self::CURRENCY_CONVERTER_HOST, $currencyTo);
                     $data[$currencyFrom][$currencyTo] = null;
                 } else {
-                    $data[$currencyFrom][$currencyTo] = $this->_numberFormat(
-                        (double)$response['rates'][$currencyTo]
-                    );
+                    $data[$currencyFrom][$currencyTo] = (double)$response['rates'][$currencyTo];
                 }
             }
         }
@@ -142,7 +155,21 @@ class FixerIo extends AbstractImport
     }
 
     /**
-     * Get Fixer.io service response
+     * Saving currency rates
+     *
+     * @param array $rates
+     * @return \Magento\Directory\Model\Currency\Import\FixerIoApiLayer
+     */
+    private function saveRates(array $rates)
+    {
+        foreach ($rates as $currencyCode => $currencyRates) {
+            $this->currencyFactory->create()->setId($currencyCode)->setRates($currencyRates)->save();
+        }
+        return $this;
+    }
+
+    /**
+     * Get apilayer.com service response
      *
      * @param string $url
      * @param int $retry
@@ -159,7 +186,7 @@ class FixerIo extends AbstractImport
             $httpClient->setOptions(
                 [
                     'timeout' => $this->scopeConfig->getValue(
-                        'currency/fixerio/timeout',
+                        'currency/fixerio_apilayer/timeout',
                         ScopeInterface::SCOPE_STORE
                     ),
                 ]
@@ -174,6 +201,17 @@ class FixerIo extends AbstractImport
             }
         }
         return $response;
+    }
+
+    /**
+     * Creates array for provided currencies with empty rates.
+     *
+     * @param array $currenciesTo
+     * @return array
+     */
+    private function makeEmptyResponse(array $currenciesTo): array
+    {
+        return array_fill_keys($currenciesTo, null);
     }
 
     /**
@@ -196,36 +234,28 @@ class FixerIo extends AbstractImport
             201 => __('An invalid base currency has been entered.'),
         ];
 
-        $this->_messages[] = $errorCodes[$response['error']['code']] ?? __('Currency rates can\'t be retrieved.');
+        $this->messages[] = $errorCodes[$response['error']['code']] ?? __('Currency rates can\'t be retrieved.');
 
         return false;
     }
 
     /**
-     * Creates array for provided currencies with empty rates.
+     * Retrieve currency codes
      *
-     * @param array $currenciesTo
      * @return array
      */
-    private function makeEmptyResponse(array $currenciesTo): array
+    private function getCurrencyCodes()
     {
-        return array_fill_keys($currenciesTo, null);
+        return $this->currencyFactory->create()->getConfigAllowCurrencies();
     }
 
     /**
-     * Get currency converter service host.
+     * Retrieve default currency codes
      *
-     * @param string $url
-     * @return string
+     * @return array
      */
-    private function getServiceHost(string $url): string
+    private function getDefaultCurrencyCodes()
     {
-        if (!$this->currencyConverterServiceHost) {
-            // phpcs:ignore Magento2.Functions.DiscouragedFunction
-            $this->currencyConverterServiceHost = parse_url($url, PHP_URL_SCHEME) . '://'
-                // phpcs:ignore Magento2.Functions.DiscouragedFunction
-                . parse_url($url, PHP_URL_HOST);
-        }
-        return $this->currencyConverterServiceHost;
+        return $this->currencyFactory->create()->getConfigBaseCurrencies();
     }
 }
