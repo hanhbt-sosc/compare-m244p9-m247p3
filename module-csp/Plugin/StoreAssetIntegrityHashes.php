@@ -51,7 +51,7 @@ class StoreAssetIntegrityHashes
      */
     public function afterDeploy(
         DeployStaticContent $subject,
-        $result,
+        mixed $result,
         array $options
     ): void {
         $bunches = [];

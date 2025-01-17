@@ -23,15 +23,11 @@ class SubresourceIntegrityRepository
     private const CACHE_PREFIX = 'INTEGRITY';
 
     /**
-     * Integrity data.
-     *
      * @var array|null
      */
     private ?array $data = null;
 
     /**
-     * Context of integrity data.
-     *
      * @var string|null
      */
     private ?string $context;
