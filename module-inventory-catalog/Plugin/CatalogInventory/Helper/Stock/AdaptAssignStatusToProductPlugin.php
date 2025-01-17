@@ -10,12 +10,9 @@ namespace Magento\InventoryCatalog\Plugin\CatalogInventory\Helper\Stock;
 use Magento\Catalog\Model\Product;
 use Magento\CatalogInventory\Helper\Stock;
 use Magento\Framework\Exception\NoSuchEntityException;
-use Magento\InventoryCatalog\Model\GetStockIdForCurrentWebsite;
-use Magento\InventoryCatalogApi\Api\DefaultStockProviderInterface;
+use Magento\InventoryCatalog\Model\GetStockIdForByStoreId;
 use Magento\InventoryCatalogApi\Model\GetProductIdsBySkusInterface;
 use Magento\InventorySalesApi\Api\AreProductsSalableInterface;
-use Magento\InventoryIndexer\Model\GetStockItemData\CacheStorage as StockItemDataCacheStorage;
-use Magento\CatalogInventory\Model\Stock as StockModel;
 
 /**
  * Adapt assignStatusToProduct for multi stocks.
@@ -23,49 +20,15 @@ use Magento\CatalogInventory\Model\Stock as StockModel;
 class AdaptAssignStatusToProductPlugin
 {
     /**
-     * @var GetStockIdForCurrentWebsite
-     */
-    private $getStockIdForCurrentWebsite;
-
-    /**
-     * @var AreProductsSalableInterface
-     */
-    private $areProductsSalable;
-
-    /**
-     * @var DefaultStockProviderInterface
-     */
-    private $defaultStockProvider;
-
-    /**
-     * @var GetProductIdsBySkusInterface
-     */
-    private $getProductIdsBySkus;
-
-    /**
-     * @var StockItemDataCacheStorage
-     */
-    private $stockItemDataCacheStorage;
-
-    /**
-     * @param GetStockIdForCurrentWebsite $getStockIdForCurrentWebsite
      * @param AreProductsSalableInterface $areProductsSalable
-     * @param DefaultStockProviderInterface $defaultStockProvider
      * @param GetProductIdsBySkusInterface $getProductIdsBySkus
-     * @param StockItemDataCacheStorage $stockItemDataCacheStorage
+     * @param GetStockIdForByStoreId $getStockIdForByStoreId
      */
     public function __construct(
-        GetStockIdForCurrentWebsite $getStockIdForCurrentWebsite,
-        AreProductsSalableInterface $areProductsSalable,
-        DefaultStockProviderInterface $defaultStockProvider,
-        GetProductIdsBySkusInterface $getProductIdsBySkus,
-        StockItemDataCacheStorage $stockItemDataCacheStorage
+        private readonly AreProductsSalableInterface $areProductsSalable,
+        private readonly GetProductIdsBySkusInterface $getProductIdsBySkus,
+        private readonly GetStockIdForByStoreId $getStockIdForByStoreId
     ) {
-        $this->getStockIdForCurrentWebsite = $getStockIdForCurrentWebsite;
-        $this->areProductsSalable = $areProductsSalable;
-        $this->defaultStockProvider = $defaultStockProvider;
-        $this->getProductIdsBySkus = $getProductIdsBySkus;
-        $this->stockItemDataCacheStorage = $stockItemDataCacheStorage;
     }
 
     /**
@@ -88,10 +51,9 @@ class AdaptAssignStatusToProductPlugin
         }
 
         try {
-            $this->stockItemDataCacheStorage->delete(StockModel::DEFAULT_STOCK_ID, $product->getSku());
             $this->getProductIdsBySkus->execute([$product->getSku()]);
             if (null === $status) {
-                $stockId = $this->getStockIdForCurrentWebsite->execute();
+                $stockId = $this->getStockIdForByStoreId->execute((int) $product->getStoreId());
                 $result = $this->areProductsSalable->execute([$product->getSku()], $stockId);
                 $result = current($result);
                 return [$product, (int)$result->isSalable()];
