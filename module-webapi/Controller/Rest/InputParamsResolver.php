@@ -138,11 +138,11 @@ class InputParamsResolver
                 $serviceMethodName
             );
             $inputData = array_merge($inputData, $this->request->getParams());
+            $inputData = $this->filterInputData($inputData);
         } else {
             $inputData = $this->request->getRequestData();
         }
 
-        $inputData = $this->filterInputData($inputData);
         $this->validateParameters($serviceClassName, $serviceMethodName, array_keys($route->getParameters()));
 
         return $this->paramsOverrider->override($inputData, $route->getParameters());
@@ -197,7 +197,7 @@ class InputParamsResolver
     ): void {
         $methodParams = $this->methodsMap->getMethodParams($serviceClassName, $serviceMethodName);
         foreach ($paramOverriders as $key => $param) {
-            $arrayKeys = explode('.', $param);
+            $arrayKeys = explode('.', $param ?? '');
             $value = array_shift($arrayKeys);
 
             foreach ($methodParams as $serviceMethodParam) {
