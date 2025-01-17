@@ -3,8 +3,6 @@
  * Copyright © Magento, Inc. All rights reserved.
  * See COPYING.txt for license details.
  */
-declare(strict_types=1);
-
 namespace Magento\Backend\Block\System\Store\Grid\Render;
 
 use Magento\Framework\DataObject;
@@ -32,6 +30,6 @@ class Group extends \Magento\Backend\Block\Widget\Grid\Column\Renderer\AbstractR
         '">' .
         $this->escapeHtml($row->getData($this->getColumn()->getIndex())) .
         '</a><br />'
-            . '(' . __('Code') . ': ' . $this->escapeHtml($row->getGroupCode()) . ')';
+        . '(' . __('Code') . ': ' . $this->escapeHtml($row->getGroupCode()) . ')';
     }
 }
